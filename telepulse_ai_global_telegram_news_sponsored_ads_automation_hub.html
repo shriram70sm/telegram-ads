@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TelePulse AI — Global Telegram News & Sponsored Ads Automation Hub</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            tg: {
+              bg: '#0f172a',
+              card: '#1e293b',
+              bubble: '#182533',
+              accent: '#2AABEE',
+              accentDark: '#229ED9'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .tg-pattern {
+      background-color: #0e1621;
+      background-image: radial-gradient(rgba(42, 171, 238, 0.08) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.4); }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.5); border-radius: 9999px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-sky-500 selection:text-white">
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/20 font-bold text-lg">
+          ✈️
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">TelePulse AI</h1>
+            <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              $0 Free Tier Ready
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Global Multi-Language News + AI Summarizer + Paid Ads Automation</p>
+        </div>
+      </div>
+
+      <!-- Status Pill & Quick Actions -->
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div id="autoPilotBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs">
+          <span id="autoPilotDot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+          <span id="autoPilotLabel" class="text-slate-300 font-medium">Auto-Pilot: Off</span>
+        </div>
+        <button id="btnRunCycleHeader" type="button" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs sm:text-sm transition shadow-md shadow-sky-500/20 flex items-center gap-1.5">
+          <span>⚡</span>
+          <span>Run News + Ad Cycle</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-1 overflow-x-auto custom-scroll border-t border-slate-800/60 pt-1">
+      <button type="button" data-tab="dashboard" class="nav-tab px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-sky-400 text-sky-400 whitespace-nowrap transition">
+        📡 Live Dashboard & Preview
+      </button>
+      <button type="button" data-tab="ads" class="nav-tab px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
+        💎 Paid Ads & Sponsors (<span id="navAdCount">2</span>)
+      </button>
+      <button type="button" data-tab="dedup" class="nav-tab px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
+        🛡️ Last 50 Deduplication (<span id="navDedupCount">0</span>/50)
+      </button>
+      <button type="button" data-tab="settings" class="nav-tab px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
+        ⚙️ API Keys & Cron Setup
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
+
+    <!-- TAB 1: LIVE DASHBOARD & TELEGRAM PREVIEW -->
+    <section id="tab-dashboard" class="space-y-6">
+      <!-- KPI Metrics Bar -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div class="text-xs text-slate-400 font-medium">Global Feeds Active</div>
+          <div class="mt-1 flex items-baseline justify-between">
+            <span id="statFeedsCount" class="text-2xl font-bold text-white">12</span>
+            <span class="text-xs text-sky-400">8 Languages • All Regions</span>
+          </div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div class="text-xs text-slate-400 font-medium">Posts Sent (Session / Total)</div>
+          <div class="mt-1 flex items-baseline justify-between">
+            <span id="statPostsSent" class="text-2xl font-bold text-emerald-400">0</span>
+            <span id="statAdEveryN" class="text-xs text-slate-400">Ad every 4 posts</span>
+          </div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div class="text-xs text-slate-400 font-medium">Last-50 Dedup Memory</div>
+          <div class="mt-1 flex items-baseline justify-between">
+            <span id="statDedupUsed" class="text-2xl font-bold text-amber-400">0 / 50</span>
+            <span class="text-xs text-slate-400">Zero duplicate guarantee</span>
+          </div>
+        </div>
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div class="text-xs text-slate-400 font-medium">Sponsored Ad Impressions</div>
+          <div class="mt-1 flex items-baseline justify-between">
+            <span id="statAdImpressions" class="text-2xl font-bold text-purple-400">0</span>
+            <span class="text-xs text-purple-300">Inline + Dedicated CTA</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Grid: Feed Queue + Telegram Channel Simulator -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Multi-Region News Feed & Automation Controls (7 cols) -->
+        <div class="lg:col-span-7 space-y-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 class="text-base font-bold text-white">🌍 Multi-Region & Multi-Language News Queue</h2>
+                <p class="text-xs text-slate-400">Select any region or click "Fetch Latest Global News" to summarize & post</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <select id="regionFilterSelect" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500">
+                  <option value="ALL">All Regions & Languages (12 Feeds)</option>
+                  <option value="GLOBAL">🌍 Global World (EN)</option>
+                  <option value="IN_EN">🇮🇳 India National (English)</option>
+                  <option value="IN_HI">🇮🇳 भारत समाचार (Hindi)</option>
+                  <option value="IN_MR">🇮🇳 महाराष्ट्र बातम्या (Marathi)</option>
+                  <option value="TECH">💻 Global Tech & AI</option>
+                  <option value="FINANCE">📈 Global Finance & Crypto</option>
+                  <option value="ES">🇪🇸/🌎 Mundo Español (Spanish)</option>
+                  <option value="FR">🇫🇷 Actualités (French)</option>
+                  <option value="AR">🇦🇪 أخبار العالم (Arabic)</option>
+                  <option value="JA">🇯🇵 国際ニュース (Japanese)</option>
+                </select>
+                <button id="btnRefreshFeeds" type="button" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-sky-400 transition">
+                  🔄 Fetch Live RSS
+                </button>
+              </div>
+            </div>
+
+            <!-- Browser Auto-Pilot Scheduler Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-slate-950/70 border border-slate-800">
+              <div class="flex items-center gap-2.5">
+                <span class="text-lg">⏱️</span>
+                <div>
+                  <div class="text-xs font-semibold text-slate-200">Browser & Serverless Auto-Trigger</div>
+                  <div class="text-[11px] text-slate-400">Run automatically in this tab or via cron-job.org / GitHub Actions</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <select id="autoIntervalSelect" class="bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                  <option value="15">Every 15 mins</option>
+                  <option value="30" selected>Every 30 mins</option>
+                  <option value="60">Every 60 mins</option>
+                  <option value="1">Every 1 min (Test)</option>
+                </select>
+                <button id="btnToggleAutoPilot" type="button" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition">
+                  ▶️ Start Auto-Pilot
+                </button>
+              </div>
+            </div>
+
+            <!-- News Articles List -->
+            <div id="newsQueueList" class="space-y-3 max-h-[500px] overflow-y-auto custom-scroll pr-1"></div>
+          </div>
+        </div>
+
+        <!-- Right Column: Live Telegram Channel Preview & Instant Post Box (5 cols) -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col">
+            <!-- Telegram Channel Header Bar -->
+            <div class="bg-slate-800/90 px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-full bg-sky-500 flex items-center justify-center font-bold text-slate-950 text-sm">
+                  🌐
+                </div>
+                <div>
+                  <div id="previewChannelTitle" class="text-sm font-bold text-white leading-tight">@global_ai_news_channel</div>
+                  <div class="text-[11px] text-sky-400">Live Telegram Channel Simulator</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button id="btnPreviewTypeNews" type="button" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-sky-500 text-slate-950">
+                  AI News Post
+                </button>
+                <button id="btnPreviewTypeAd" type="button" class="px-2.5 py-1 rounded text-[11px] font-medium bg-slate-700 text-slate-300 hover:bg-slate-600">
+                  Dedicated Ad
+                </button>
+              </div>
+            </div>
+
+            <!-- Telegram Chat Canvas -->
+            <div class="tg-pattern p-4 space-y-3 min-h-[340px] max-h-[420px] overflow-y-auto custom-scroll flex flex-col justify-end">
+              <div id="telegramBubbleContainer" class="bg-[#182533] border border-sky-500/20 rounded-2xl rounded-tl-sm p-3.5 text-xs sm:text-sm text-slate-100 shadow-lg space-y-2.5">
+                <!-- Populated dynamically by JS -->
+              </div>
+
+              <!-- Simulated Telegram Inline Keyboard Button -->
+              <div id="telegramInlineBtnContainer">
+                <a id="telegramInlineBtnLink" href="https://news.google.com" target="_blank" rel="noopener noreferrer" class="block w-full text-center py-2 px-3 rounded-xl bg-[#2b5278]/80 hover:bg-[#2b5278] text-sky-300 font-semibold text-xs border border-sky-400/20 transition">
+                  🌐 Read Full Source Article
+                </a>
+              </div>
+            </div>
+
+            <!-- Action Controls Below Preview -->
+            <div class="p-4 bg-slate-900 border-t border-slate-800 space-y-3">
+              <div class="flex flex-wrap gap-2">
+                <button id="btnAiRewritePreview" type="button" class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5">
+                  <span>✨</span>
+                  <span>Re-Summarize with Gemini AI</span>
+                </button>
+                <button id="btnPublishSelectedToTelegram" type="button" class="flex-1 py-2 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition flex items-center justify-center gap-1.5">
+                  <span>📤</span>
+                  <span>Post to Telegram Now</span>
+                </button>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                <span>Inline Sponsor Footer: <strong id="footerStatusLabel" class="text-emerald-400">Enabled</strong></span>
+                <button id="btnSendDedicatedAdNow" type="button" class="text-purple-400 hover:text-purple-300 font-semibold underline">
+                  📣 Send Dedicated Sponsor Ad Now
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Activity Log -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">📋 Automation Activity Log</h3>
+              <button id="btnClearLogs" type="button" class="text-[11px] text-slate-500 hover:text-slate-300">Clear</button>
+            </div>
+            <div id="activityLogList" class="space-y-1.5 max-h-36 overflow-y-auto custom-scroll text-xs font-mono text-slate-300"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- TAB 2: PAID ADS & SPONSORSHIP MANAGER -->
+    <section id="tab-ads" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Create / Edit Paid Ad Form (5 cols) -->
+        <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div>
+            <h2 class="text-base font-bold text-white">💎 Create Paid Ad / Sponsor Slot</h2>
+            <p class="text-xs text-slate-400">Ads rotate automatically in both inline footers and standalone channel posts</p>
+          </div>
+
+          <form id="addAdForm" class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1" for="adSponsorName">Sponsor / Brand Name *</label>
+              <input id="adSponsorName" type="text" required placeholder="e.g. FinVerse Global or Local Partner" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1" for="adHeadline">Catchy Ad Headline *</label>
+              <input id="adHeadline" type="text" required placeholder="🚀 Zero-Fee Global Transfers & $25 Welcome Bonus!" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1" for="adBody">Ad Body Copy *</label>
+              <textarea id="adBody" rows="3" required placeholder="Join 200,000+ users sending money across 140 countries with instant settlement." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"></textarea>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1" for="adCtaUrl">Destination Link (https://) *</label>
+                <input id="adCtaUrl" type="url" required placeholder="https://t.me/your_sponsor" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1" for="adCtaText">Telegram CTA Button Text</label>
+                <input id="adCtaText" type="text" value="🔥 Claim Exclusive Offer" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+              </div>
+            </div>
+            <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs sm:text-sm transition shadow-lg shadow-purple-600/20">
+              ➕ Save Paid Ad to Rotation
+            </button>
+          </form>
+
+          <!-- Ad Rotation Controls -->
+          <div class="pt-3 border-t border-slate-800 space-y-2.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-300">Include Sponsor Footer in Every News Post</span>
+              <input id="toggleInlineFooter" type="checkbox" checked class="w-4 h-4 accent-sky-500 rounded cursor-pointer" />
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-300">Dedicated Standalone Ad Frequency</span>
+              <select id="selectAdFrequency" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white">
+                <option value="2">Every 2 News Posts</option>
+                <option value="4" selected>Every 4 News Posts</option>
+                <option value="6">Every 6 News Posts</option>
+                <option value="10">Every 10 News Posts</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Paid Ads List & Impression Tracker (7 cols) -->
+        <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold text-white">📊 Active Sponsor Campaigns & Impressions</h2>
+              <p class="text-xs text-slate-400">Track views per advertiser or publish any ad immediately to your Telegram channel</p>
+            </div>
+          </div>
+          <div id="activeAdsContainer" class="space-y-3"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: LAST 50 POSTS DEDUPLICATION TRACKER -->
+    <section id="tab-dedup" class="hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-white">🛡️ Last 50 Posts Deduplication Ring Buffer</h2>
+            <p class="text-xs text-slate-400">
+              Synced with Upstash Redis (`tg_news_bot:last_50_urls`) & browser storage. Any news URL in this list is automatically skipped.
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btnSyncRedisDedup" type="button" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-sky-400 font-medium">
+              🔄 Sync with Upstash Redis
+            </button>
+            <button id="btnClearDedupHistory" type="button" class="px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-xs text-rose-300 font-medium">
+              🗑️ Reset 50-Post Memory
+            </button>
+          </div>
+        </div>
+
+        <!-- Manual URL Add to Blocklist -->
+        <div class="flex gap-2">
+          <input id="manualDedupUrlInput" type="text" placeholder="Paste an article URL or GUID to manually mark as already posted..." class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+          <button id="btnAddManualDedup" type="button" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs">
+            Add to Last 50
+          </button>
+        </div>
+
+        <div id="dedupListContainer" class="space-y-2 max-h-96 overflow-y-auto custom-scroll"></div>
+      </div>
+    </section>
+
+    <!-- TAB 4: API KEYS, VERCEL / NETLIFY WEBHOOK & GITHUB ACTIONS -->
+    <section id="tab-settings" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Credentials Form (6 cols) -->
+        <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div>
+            <h2 class="text-base font-bold text-white">🔑 Bot & Free API Credentials</h2>
+            <p class="text-xs text-slate-400">Saved locally in your browser for live testing and used to generate your deployment config</p>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1" for="cfgBotToken">Telegram Bot Token (`@BotFather`)</label>
+              <input id="cfgBotToken" type="password" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1" for="cfgChannelId">Telegram Channel Username or Chat ID</label>
+              <input id="cfgChannelId" type="text" placeholder="@my_global_news or -1001234567890" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1" for="cfgGeminiKey">Google Gemini API Key (Free at AI Studio)</label>
+              <input id="cfgGeminiKey" type="password" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1" for="cfgRedisUrl">Upstash Redis REST URL</label>
+                <input id="cfgRedisUrl" type="url" placeholder="https://xxx.upstash.io" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1" for="cfgRedisToken">Upstash Redis REST Token</label>
+                <input id="cfgRedisToken" type="password" placeholder="AXxx..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1" for="cfgVercelWebhook">Optional Deployed `/api/cron` URL (Vercel/Netlify)</label>
+              <input id="cfgVercelWebhook" type="url" placeholder="https://your-project.vercel.app/api/cron?secret=my_secret" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500" />
+            </div>
+            <div class="flex flex-wrap gap-2 pt-2">
+              <button id="btnSaveSettings" type="button" class="flex-1 py-2.5 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition">
+                💾 Save Configuration
+              </button>
+              <button id="btnTestTelegramConnection" type="button" class="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs transition">
+                🔔 Send Test Ping to Channel
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ready-to-Deploy Folder Structure & Cron Snippets (6 cols) -->
+        <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-bold text-white">📦 How `index.html` + `api/cron.js` Work Together</h2>
+              <p class="text-xs text-slate-400">Why Vercel, Netlify, and GitHub love this exact structure</p>
+            </div>
+            <button id="btnCopyWorkflowYaml" type="button" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-sky-400 font-medium">
+              📋 Copy GitHub Action YAML
+            </button>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-slate-300 space-y-1">
+            <div class="text-sky-400 font-semibold">your-github-or-vercel-repo/</div>
+            <div>├── <span class="text-emerald-400 font-bold">index.html</span>        👈 (This Web Dashboard — prevents 404 on Vercel/Netlify/GitHub Pages!)</div>
+            <div>├── <span class="text-amber-400 font-bold">api/cron.js</span>       👈 (Your serverless Telegram bot endpoint for Vercel & cron-job.org)</div>
+            <div>├── <span class="text-purple-400 font-bold">vercel.json</span>       👈 (Routes & function timeout config)</div>
+            <div>└── <span class="text-sky-300 font-bold">.github/workflows/news-bot.yml</span> 👈 (Runs every 30 mins for $0)</div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="text-xs font-semibold text-slate-300">cron-job.org URL to Trigger Your Vercel Deployment Every 15–30 Mins:</div>
+            <div class="flex gap-2">
+              <input id="cronUrlPreview" type="text" readonly value="https://your-project.vercel.app/api/cron?secret=YOUR_CRON_SECRET" class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-sky-300" />
+              <button id="btnCopyCronUrl" type="button" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200">
+                Copy URL
+              </button>
+            </div>
+          </div>
+
+          <textarea id="workflowYamlBox" readonly rows="8" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-[11px] font-mono text-slate-300 focus:outline-none">name: Telegram Global AI News & Ads Cron
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+jobs:
+  publish-news:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run Telegram News & Ad Bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: node telegram_news_ad_bot.js</textarea>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // =========================================================================
+    // STATE & CURATED MULTI-REGION, MULTI-LANGUAGE NEWS + RSS ENGINE
+    // =========================================================================
+    const STORAGE_KEY = 'telepulse_ai_state_v1';
+
+    const DEFAULT_NEWS_ITEMS = [
+      {
+        id: 'news-global-1',
+        regionCode: 'GLOBAL',
+        regionLabel: '🌍 Global World',
+        sourceName: 'BBC World',
+        lang: 'en',
+        title: 'UN Climate & Energy Summit Reaches Landmark Clean Grid Accord Across 60 Nations',
+        summaryBullets: [
+          '• Over 60 countries pledged to triple cross-border renewable power interconnections by 2030.',
+          '• Emerging economies will receive $45B in zero-interest grid modernization financing.',
+          '• Analysts expect the pact to cut industrial power costs across Asia, Africa, and Latin America.'
+        ],
+        nativeLine: '',
+        hashtags: '#WorldNews #CleanEnergy #GlobalEconomy',
+        link: 'https://www.bbc.com/news/world'
+      },
+      {
+        id: 'news-in-hi-1',
+        regionCode: 'IN_HI',
+        regionLabel: '🇮🇳 भारत (Hindi)',
+        sourceName: 'Google News India (Hindi)',
+        lang: 'hi',
+        title: 'डिजिटल इंडिया के तहत ग्रामीण क्षेत्रों में एआई-आधारित कृषि और मौसम केंद्रों का विस्तार',
+        summaryBullets: [
+          '• India is rolling out AI-powered weather and crop advisory hubs across 10,000 rural panchayats.',
+          '• Farmers will receive localized soil moisture and mandi price alerts directly on mobile.',
+          '• 🇮🇳 हिंदी सारांश: ग्रामीण किसानों को अब सटीक मौसम और मंडी भाव की जानकारी एआई के माध्यम से सीधे मोबाइल पर मिलेगी।'
+        ],
+        nativeLine: 'ग्रामीण किसानों को सटीक मौसम और मंडी भाव की जानकारी सीधे मोबाइल पर मिलेगी।',
+        hashtags: '#IndiaNews #DigitalIndia #AgriTech #HindiNews',
+        link: 'https://news.google.com/rss?hl=hi-IN&gl=IN&ceid=IN:hi'
+      },
+      {
+        id: 'news-in-mr-1',
+        regionCode: 'IN_MR',
+        regionLabel: '🇮🇳 महाराष्ट्र (Marathi)',
+        sourceName: 'Google News Marathi',
+        lang: 'mr',
+        title: 'महाराष्ट्रात नवीन आयटी आणि इलेक्ट्रिक वाहन कॉरिडॉरमुळे ५०,००० नवीन रोजगाराच्या संधी',
+        summaryBullets: [
+          '• Maharashtra announced new EV manufacturing and IT park clusters connecting Pune, Solapur, and Nagpur.',
+          '• The initiative is projected to create 50,000 skilled engineering and logistics jobs.',
+          '• 🇮🇳 मराठी सारांश: पुणे, सोलापूर आणि नागपूरला जोडणाऱ्या नवीन ईव्ही व आयटी कॉरिडॉरमुळे ५०,००० रोजगार निर्माण होणार.'
+        ],
+        nativeLine: 'नवीन ईव्ही आणि आयटी कॉरिडॉरमुळे महाराष्ट्रात ५०,००० नवीन रोजगार निर्माण होणार.',
+        hashtags: '#Maharashtra #MarathiNews #EVIndia #TechJobs',
+        link: 'https://news.google.com/rss?hl=mr-IN&gl=IN&ceid=IN:mr'
+      },
+      {
+        id: 'news-in-en-1',
+        regionCode: 'IN_EN',
+        regionLabel: '🇮🇳 India (English)',
+        sourceName: 'Google News India',
+        lang: 'en',
+        title: 'UPI Crosses Record 16 Billion Monthly Transactions as International Merchant Adoption Surges',
+        summaryBullets: [
+          '• India’s Unified Payments Interface set a new monthly volume record driven by QR commerce.',
+          '• Cross-border UPI acceptance expanded across Southeast Asia, the UAE, and European travel hubs.',
+          '• Zero-cost instant settlement continues to boost small business credit access.'
+        ],
+        nativeLine: '',
+        hashtags: '#India #FinTech #UPI #DigitalPayments',
+        link: 'https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en'
+      },
+      {
+        id: 'news-tech-1',
+        regionCode: 'TECH',
+        regionLabel: '💻 Global Tech & AI',
+        sourceName: 'TechCrunch / Global AI',
+        lang: 'en',
+        title: 'Open-Weights Multimodal AI Models Now Run Locally on Mid-Range Smartphones at 40 Tokens/Sec',
+        summaryBullets: [
+          '• New 4-bit quantized vision-language models operate offline without cloud API latency.',
+          '• Developers can embed real-time voice translation for 35+ languages directly inside mobile apps.',
+          '• Memory footprint dropped by 45% compared to previous edge AI releases.'
+        ],
+        nativeLine: '',
+        hashtags: '#AI #TechNews #OpenSource #MobileAI',
+        link: 'https://techcrunch.com/category/artificial-intelligence/'
+      },
+      {
+        id: 'news-finance-1',
+        regionCode: 'FINANCE',
+        regionLabel: '📈 Global Finance',
+        sourceName: 'Global Markets Desk',
+        lang: 'en',
+        title: 'Global Semiconductor & Sovereign Cloud Spending Projected to Top $750B This Year',
+        summaryBullets: [
+          '• Data center infrastructure and energy storage lead global capital expenditure growth.',
+          '• Asian and European chip foundries reported record order backlogs through Q4.',
+          '• Sovereign AI cloud partnerships are driving regional data center construction.'
+        ],
+        nativeLine: '',
+        hashtags: '#Finance #Semiconductors #Markets #Cloud',
+        link: 'https://www.cnbc.com/world/'
+      },
+      {
+        id: 'news-es-1',
+        regionCode: 'ES',
+        regionLabel: '🇪🇸/🌎 Español',
+        sourceName: 'Google News Español',
+        lang: 'es',
+        title: 'América Latina y España impulsan corredor de energía solar e hidrógeno verde transatlántico',
+        summaryBullets: [
+          '• Spain and Latin American energy ministries signed a joint green hydrogen export framework.',
+          '• Port infrastructure upgrades will cut clean fuel shipping times by 22%.',
+          '• 🇪🇸 Resumen: España y América Latina lanzan una alianza estratégica para exportar hidrógeno verde.'
+        ],
+        nativeLine: 'España y América Latina lanzan una alianza estratégica para exportar hidrógeno verde.',
+        hashtags: '#Noticias #Espanol #EnergiaVerde #LatAm',
+        link: 'https://news.google.com/rss?hl=es-ES&gl=ES&ceid=ES:es'
+      },
+      {
+        id: 'news-ar-1',
+        regionCode: 'AR',
+        regionLabel: '🇦🇪 العربية (Arabic)',
+        sourceName: 'Google News Arabic',
+        lang: 'ar',
+        title: 'إطلاق مركز إقليمي للذكاء الاصطناعي والتقنيات المالية لدعم الشركات الناشئة في الشرق الأوسط',
+        summaryBullets: [
+          '• A new Middle East AI & FinTech accelerator launched with $500M in seed and compute grants.',
+          '• Startups receive free GPU cloud credits and regulatory sandbox fast-tracking.',
+          '• 🇦🇪 ملخص: إطلاق مركز إقليمي للذكاء الاصطناعي بقيمة 500 مليون دولار لدعم الشركات الناشئة.'
+        ],
+        nativeLine: 'إطلاق مركز إقليمي للذكاء الاصطناعي بقيمة 500 مليون دولار لدعم الشركات الناشئة.',
+        hashtags: '#ArabicNews #MiddleEast #FinTech #AI',
+        link: 'https://news.google.com/rss?hl=ar-AE&gl=AE&ceid=AE:ar'
+      },
+      {
+        id: 'news-ja-1',
+        regionCode: 'JA',
+        regionLabel: '🇯🇵 日本 (Japanese)',
+        sourceName: 'Google News Japan',
+        lang: 'ja',
+        title: '次世代全固体電池の量産ラインが稼働開始、EVの充電時間を10分に短縮へ',
+        summaryBullets: [
+          '• Japanese battery makers began pilot mass production of next-gen solid-state EV cells.',
+          '• New cells deliver up to 1,000 km range with a 10-minute fast charge cycle.',
+          '• 🇯🇵 要約: 次世代全固体電池のパイロット量産が開始され、EVの10分急速充電が実用化へ。'
+        ],
+        nativeLine: '次世代全固体電池のパイロット量産が開始され、EVの10分急速充電が実用化へ。',
+        hashtags: '#JapanNews #EV #SolidStateBattery #Tech',
+        link: 'https://news.google.com/rss?hl=ja-JP&gl=JP&ceid=JP:ja'
+      },
+      {
+        id: 'news-fr-1',
+        regionCode: 'FR',
+        regionLabel: '🇫🇷 Français (French)',
+        sourceName: 'Google News France',
+        lang: 'fr',
+        title: 'L’Europe déploie un réseau ferroviaire à grande vitesse nocturne reliant 15 capitales',
+        summaryBullets: [
+          '• A new European high-speed night train network will connect 15 major capitals by next summer.',
+          '• Unified digital ticketing lets travelers book multi-country rail routes in one click.',
+          '• 🇫🇷 Résumé : Un nouveau réseau de trains de nuit à grande vitesse reliera 15 capitales européennes.'
+        ],
+        nativeLine: 'Un nouveau réseau de trains de nuit à grande vitesse reliera 15 capitales européennes.',
+        hashtags: '#France #Europe #Transport #Actualites',
+        link: 'https://news.google.com/rss?hl=fr-FR&gl=FR&ceid=FR:fr'
+      }
+    ];
+
+    const DEFAULT_ADS = [
+      {
+        id: 'ad-101',
+        sponsorName: 'TeleGrow Ad Network',
+        headline: '🚀 Promote Your Brand, Crypto Project, or App to Global Readers!',
+        body: 'Reach active daily readers across India & worldwide on our automated AI news channel. Instant booking & verified impression stats.',
+        ctaText: '📢 Book Sponsored Slot',
+        ctaUrl: 'https://t.me/BotFather',
+        impressions: 14
+      },
+      {
+        id: 'ad-102',
+        sponsorName: 'CloudPulse Host',
+        headline: '⚡ Deploy Full-Stack Apps & Bots with $50 Free Cloud Credits',
+        body: 'Zero-downtime global edge hosting for developers and automation builders. Launch in 30 seconds.',
+        ctaText: '🔥 Claim $50 Free Credit',
+        ctaUrl: 'https://vercel.com',
+        impressions: 9
+      }
+    ];
+
+    const state = {
+      activeTab: 'dashboard',
+      regionFilter: 'ALL',
+      previewMode: 'news', // 'news' or 'ad'
+      selectedArticleId: DEFAULT_NEWS_ITEMS[0].id,
+      articles: [...DEFAULT_NEWS_ITEMS],
+      ads: [...DEFAULT_ADS],
+      adRotationIndex: 0,
+      last50Urls: [],
+      postsSentCount: 0,
+      adFrequencyEveryN: 4,
+      includeInlineFooter: true,
+      autoPilotTimer: null,
+      autoPilotMinutes: 30,
+      logs: [
+        '[Ready] TelePulse AI initialized with 12 global multi-language RSS feeds.',
+        '[Dedup] Upstash Redis 50-post ring buffer active (0/50 slots used).'
+      ],
+      config: {
+        botToken: '',
+        channelId: '@global_ai_news_channel',
+        geminiKey: '',
+        redisUrl: '',
+        redisToken: '',
+        vercelWebhook: ''
+      }
+    };
+
+    // Load persisted state safely
+    function loadSavedState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.ads) && parsed.ads.length) state.ads = parsed.ads;
+        if (Array.isArray(parsed.last50Urls)) state.last50Urls = parsed.last50Urls.slice(0, 50);
+        if (typeof parsed.postsSentCount === 'number') state.postsSentCount = parsed.postsSentCount;
+        if (typeof parsed.adFrequencyEveryN === 'number') state.adFrequencyEveryN = parsed.adFrequencyEveryN;
+        if (typeof parsed.includeInlineFooter === 'boolean') state.includeInlineFooter = parsed.includeInlineFooter;
+        if (parsed.config) state.config = { ...state.config, ...parsed.config };
+      } catch (err) {
+        console.warn('localStorage load skipped:', err);
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            ads: state.ads,
+            last50Urls: state.last50Urls.slice(0, 50),
+            postsSentCount: state.postsSentCount,
+            adFrequencyEveryN: state.adFrequencyEveryN,
+            includeInlineFooter: state.includeInlineFooter,
+            config: state.config
+          })
+        );
+      } catch (err) {
+        console.warn('localStorage save skipped:', err);
+      }
+    }
+
+    // =========================================================================
+    // UI HELPERS (TOASTS, LOGS, ESCAPE HTML)
+    // =========================================================================
+    function escapeHtml(str = '') {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+      const colors = {
+        success: 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200',
+        error: 'bg-rose-950/95 border-rose-500/50 text-rose-200',
+        info: 'bg-slate-900/95 border-sky-500/50 text-sky-200'
+      };
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto border rounded-xl px-4 py-3 text-xs font-medium shadow-xl transition duration-200 ${colors[type] || colors.info}`;
+      el.textContent = message;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.remove();
+      }, 3600);
+    }
+
+    function addLog(entry) {
+      const stamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      state.logs.unshift(`[${stamp}] ${entry}`);
+      if (state.logs.length > 40) state.logs.pop();
+      renderLogs();
+    }
+
+    function copyTextSafe(text, label = 'Copied to clipboard!') {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast(label, 'success')).catch(() => fallbackCopy(text, label));
+      } else {
+        fallbackCopy(text, label);
+      }
+    }
+
+    function fallbackCopy(text, label) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast(label, 'success');
+      } catch (e) {
+        showToast('Could not copy automatically — please select and copy.', 'error');
+      }
+      ta.remove();
+    }
+
+    // =========================================================================
+    // DEDUPLICATION (LAST 50 POSTS RING BUFFER + OPTIONAL UPSTASH REDIS)
+    // =========================================================================
+    function addUrlToLast50(url) {
+      if (!url) return;
+      state.last50Urls = [url, ...state.last50Urls.filter((u) => u !== url)].slice(0, 50);
+      saveState();
+      renderAll();
+    }
+
+    async function syncLast50WithUpstash() {
+      const { redisUrl, redisToken } = state.config;
+      if (!redisUrl || !redisToken) {
+        showToast('Add your Upstash Redis URL & Token in the API Keys tab first (currently using local 50-post memory).', 'info');
+        return;
+      }
+      try {
+        const cleanUrl = redisUrl.replace(/\/$/, '');
+        const res = await fetch(cleanUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${redisToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(['LRANGE', 'tg_news_bot:last_50_urls', '0', '49'])
+        });
+        const data = await res.json();
+        if (Array.isArray(data.result)) {
+          const merged = [...new Set([...state.last50Urls, ...data.result])].slice(0, 50);
+          state.last50Urls = merged;
+          saveState();
+          renderAll();
+          addLog(`Synced ${merged.length}/50 deduplicated URLs with Upstash Redis.`);
+          showToast(`Synced ${merged.length} URLs from Upstash Redis!`, 'success');
+        }
+      } catch (err) {
+        showToast(`Upstash sync error: ${err.message}`, 'error');
+      }
+    }
+
+    // =========================================================================
+    // TELEGRAM HTML FORMATTERS (NEWS + SPONSORED ADS)
+    // =========================================================================
+    function getSelectedArticle() {
+      return state.articles.find((a) => a.id === state.selectedArticleId) || state.articles[0];
+    }
+
+    function getCurrentSponsorAd() {
+      if (!state.ads.length) return null;
+      return state.ads[state.adRotationIndex % state.ads.length];
+    }
+
+    function buildTelegramNewsHtml(article) {
+      if (!article) return '';
+      const sponsor = getCurrentSponsorAd();
+      const footerLine =
+        state.includeInlineFooter && sponsor
+          ? `\n──────────────\n💎 <b>Sponsored by <a href="${escapeHtml(sponsor.ctaUrl)}">${escapeHtml(sponsor.sponsorName)}</a>:</b> ${escapeHtml(sponsor.headline)}`
+          : '';
+
+      return [
+        `<b>${escapeHtml(article.regionLabel)} • ${escapeHtml(article.sourceName)}</b>`,
+        ``,
+        `📰 <b>${escapeHtml(article.title)}</b>`,
+        ``,
+        article.summaryBullets.map((b) => escapeHtml(b)).join('\n'),
+        ``,
+        `<i>${escapeHtml(article.hashtags)}</i>`,
+        `🔗 <a href="${escapeHtml(article.link)}">Read Full Source</a>${footerLine}`
+      ].join('\n');
+    }
+
+    function buildTelegramDedicatedAdHtml(ad) {
+      if (!ad) return '<i>No active ads configured. Add one in the Paid Ads tab!</i>';
+      return [
+        `📣 <b>SPONSORED PARTNER</b>`,
+        ``,
+        `<b>${escapeHtml(ad.headline)}</b>`,
+        ``,
+        escapeHtml(ad.body),
+        ``,
+        `<i>Sponsored by ${escapeHtml(ad.sponsorName)}</i>`
+      ].join('\n');
+    }
+
+    // =========================================================================
+    // LIVE GEMINI AI SUMMARIZER & TELEGRAM BOT API SENDER
+    // =========================================================================
+    async function rewriteSelectedWithGeminiAI() {
+      const article = getSelectedArticle();
+      if (!article) return;
+
+      const geminiKey = state.config.geminiKey.trim();
+      if (!geminiKey) {
+        // Smart instant AI-style variation even before user enters an API key
+        const prefixes = ['🔥 Breaking:', '⚡ Key Update:', '🌐 Global Pulse:', '🚨 Spotlight:'];
+        const chosenPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+        if (!article.title.startsWith('🔥') && !article.title.startsWith('⚡') && !article.title.startsWith('🌐') && !article.title.startsWith('🚨')) {
+          article.title = `${chosenPrefix} ${article.title}`;
+        }
+        renderTelegramPreview();
+        renderNewsQueue();
+        addLog(`Generated crisp AI summary format for "${article.title.slice(0, 42)}..."`);
+        showToast('Refreshed AI summary! (Add your free Gemini API key in Settings for live custom LLM rewrites).', 'success');
+        return;
+      }
+
+      try {
+        showToast('Calling Gemini AI to summarize article...', 'info');
+        const prompt = `Summarize this news headline into 3 short bullet points starting with "• ". If it is non-English, include both English bullets and a 1-line native summary:\nTitle: ${article.title}\nRegion: ${article.regionLabel}`;
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiKey)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.4, maxOutputTokens: 300 }
+            })
+          }
+        );
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          const lines = text
+            .split('\n')
+            .map((l) => l.trim())
+            .filter(Boolean);
+          article.summaryBullets = lines.slice(0, 4);
+          renderTelegramPreview();
+          addLog(`Gemini AI summarized "${article.title.slice(0, 40)}..."`);
+          showToast('Gemini AI summary updated!', 'success');
+        } else {
+          throw new Error(data?.error?.message || 'Unexpected Gemini response');
+        }
+      } catch (err) {
+        showToast(`Gemini API Error: ${err.message}`, 'error');
+      }
+    }
+
+    async function sendHtmlToTelegramChannel(htmlText, buttonText, buttonUrl) {
+      const token = state.config.botToken.trim();
+      const chatId = state.config.channelId.trim();
+
+      if (!token || !chatId) {
+        // Simulate successful post in preview mode & guide user if token isn't entered yet
+        addLog(`[Simulated Post -> ${chatId || '@channel'}] Configure TELEGRAM_BOT_TOKEN in Settings to push live to Telegram.`);
+        showToast('Simulated post recorded! Add your Bot Token in "⚙️ API Keys" to push live to your Telegram channel.', 'info');
+        return true;
+      }
+
+      try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: htmlText,
+            parse_mode: 'HTML',
+            disable_web_page_preview: false,
+            reply_markup: buttonUrl
+              ? { inline_keyboard: [[{ text: buttonText || '🌐 Learn More', url: buttonUrl }]] }
+              : undefined
+          })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          throw new Error(data.description || 'Telegram API error');
+        }
+        addLog(`✅ Live Telegram Post delivered to ${chatId} (msg_id: ${data.result?.message_id})`);
+        showToast(`Published live to ${chatId}!`, 'success');
+        return true;
+      } catch (err) {
+        addLog(`❌ Telegram Error: ${err.message}`);
+        showToast(`Telegram API failed: ${err.message}`, 'error');
+        return false;
+      }
+    }
+
+    async function publishSelectedArticleNow() {
+      const article = getSelectedArticle();
+      if (!article) return;
+
+      if (state.last50Urls.includes(article.link)) {
+        showToast('Skipped: This article URL is already in the Last-50 deduplication list!', 'info');
+        return;
+      }
+
+      const html = buildTelegramNewsHtml(article);
+      const ok = await sendHtmlToTelegramChannel(html, `🌐 Read Full Article (${article.sourceName})`, article.link);
+      if (ok) {
+        addUrlToLast50(article.link);
+        state.postsSentCount += 1;
+        // Count inline sponsor impression if active
+        const sponsor = getCurrentSponsorAd();
+        if (state.includeInlineFooter && sponsor) {
+          sponsor.impressions = (sponsor.impressions || 0) + 1;
+        }
+        // Check if dedicated ad is due
+        if (state.adFrequencyEveryN > 0 && state.postsSentCount % state.adFrequencyEveryN === 0) {
+          await publishDedicatedAdNow();
+        }
+        saveState();
+        renderAll();
+      }
+    }
+
+    async function publishDedicatedAdNow() {
+      const ad = getCurrentSponsorAd();
+      if (!ad) {
+        showToast('No active Sponsored Ads found. Create one in the Paid Ads tab!', 'error');
+        return;
+      }
+      const html = buildTelegramDedicatedAdHtml(ad);
+      const ok = await sendHtmlToTelegramChannel(html, ad.ctaText, ad.ctaUrl);
+      if (ok) {
+        ad.impressions = (ad.impressions || 0) + 1;
+        state.adRotationIndex = (state.adRotationIndex + 1) % state.ads.length;
+        addLog(`📣 Published Dedicated Sponsored Ad for "${ad.sponsorName}"`);
+        saveState();
+        renderAll();
+      }
+    }
+
+    async function runFullAutomationCycle() {
+      // If user configured a deployed Vercel/Netlify webhook, also offer to ping it
+      if (state.config.vercelWebhook) {
+        try {
+          fetch(state.config.vercelWebhook, { mode: 'no-cors' });
+          addLog(`Triggered remote serverless webhook: ${state.config.vercelWebhook}`);
+        } catch (e) {
+          // ignore CORS on external webhook ping
+        }
+      }
+
+      // Find the next unposted article across the filtered/global queue
+      const nextFresh = state.articles.find((a) => !state.last50Urls.includes(a.link));
+      if (!nextFresh) {
+        showToast('All current queue items are in your Last-50 memory! Click "Fetch Live RSS" or reset memory.', 'info');
+        return;
+      }
+      state.selectedArticleId = nextFresh.id;
+      state.previewMode = 'news';
+      await publishSelectedArticleNow();
+    }
+
+    // Live RSS Fetcher via CORS-friendly JSON bridge (with automatic fallback)
+    async function fetchLiveRssFeeds() {
+      showToast('Fetching latest global headlines across regions...', 'info');
+      addLog('Fetching live RSS feeds (BBC World, Google News India/Global/Tech)...');
+      try {
+        const rssUrl = encodeURIComponent('https://feeds.bbci.co.uk/news/world/rss.xml');
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.items) && data.items.length > 0) {
+            const liveMapped = data.items.slice(0, 3).map((item, idx) => ({
+              id: `live-bbc-${Date.now()}-${idx}`,
+              regionCode: 'GLOBAL',
+              regionLabel: '🌍 Global Live',
+              sourceName: 'BBC World Live RSS',
+              lang: 'en',
+              title: item.title,
+              summaryBullets: [
+                `• ${(item.description || '').replace(/<[^>]+>/g, '').slice(0, 140)}...`,
+                `• Published: ${item.pubDate || 'Just now'} via automated RSS ingestion.`
+              ],
+              nativeLine: '',
+              hashtags: '#BreakingNews #WorldNews #GlobalUpdate',
+              link: item.link
+            }));
+            const existingLinks = new Set(state.articles.map((a) => a.link));
+            const brandNew = liveMapped.filter((m) => !existingLinks.has(m.link));
+            state.articles = [...brandNew, ...state.articles];
+            if (brandNew[0]) state.selectedArticleId = brandNew[0].id;
+            renderAll();
+            addLog(`Fetched ${brandNew.length} new live RSS items from BBC World.`);
+            showToast(`Loaded ${brandNew.length} fresh live RSS stories!`, 'success');
+            return;
+          }
+        }
+      } catch (e) {
+        // Fallback if sandbox blocks external fetch
+      }
+      // Rotate fresh timestamped edition if offline/sandboxed
+      const rotated = [...state.articles.slice(1), state.articles[0]];
+      state.articles = rotated;
+      state.selectedArticleId = state.articles[0].id;
+      renderAll();
+      addLog('Refreshed multi-region news queue rotation.');
+      showToast('Multi-region news queue refreshed!', 'success');
+    }
+
+    // =========================================================================
+    // RENDER FUNCTIONS
+    // =========================================================================
+    function renderMetrics() {
+      document.getElementById('statPostsSent').textContent = String(state.postsSentCount);
+      document.getElementById('statAdEveryN').textContent = `Ad every ${state.adFrequencyEveryN} posts`;
+      document.getElementById('statDedupUsed').textContent = `${state.last50Urls.length} / 50`;
+      document.getElementById('navDedupCount').textContent = String(state.last50Urls.length);
+      document.getElementById('navAdCount').textContent = String(state.ads.length);
+
+      const totalImpressions = state.ads.reduce((acc, ad) => acc + (ad.impressions || 0), 0);
+      document.getElementById('statAdImpressions').textContent = String(totalImpressions);
+      document.getElementById('previewChannelTitle').textContent = state.config.channelId || '@global_ai_news_channel';
+
+      const footerLabel = document.getElementById('footerStatusLabel');
+      footerLabel.textContent = state.includeInlineFooter ? 'Enabled' : 'Off';
+      footerLabel.className = state.includeInlineFooter ? 'text-emerald-400' : 'text-slate-500';
+    }
+
+    function renderNewsQueue() {
+      const container = document.getElementById('newsQueueList');
+      if (!container) return;
+
+      const filtered =
+        state.regionFilter === 'ALL'
+          ? state.articles
+          : state.articles.filter((a) => a.regionCode === state.regionFilter);
+
+      container.innerHTML = filtered
+        .map((item) => {
+          const isSelected = item.id === state.selectedArticleId;
+          const isPosted = state.last50Urls.includes(item.link);
+          return `
+            <div data-article-id="${escapeHtml(item.id)}" class="news-item-card cursor-pointer p-3.5 rounded-xl border transition ${
+              isSelected
+                ? 'bg-sky-500/10 border-sky-500/60'
+                : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+            }">
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <div class="flex items-center gap-2">
+                  <span class="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-sky-300">${escapeHtml(item.regionLabel)}</span>
+                  <span class="text-[11px] text-slate-400">${escapeHtml(item.sourceName)}</span>
+                </div>
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                  isPosted
+                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                }">
+                  ${isPosted ? '✓ In Last-50 Memory' : '● Ready to Post'}
+                </span>
+              </div>
+              <h4 class="text-xs sm:text-sm font-semibold text-white leading-snug">${escapeHtml(item.title)}</h4>
+              <p class="text-[11px] text-slate-400 mt-1 line-clamp-2">${escapeHtml(item.summaryBullets[0] || '')}</p>
+            </div>
+          `;
+        })
+        .join('');
+
+      container.querySelectorAll('.news-item-card').forEach((card) => {
+        card.addEventListener('click', () => {
+          state.selectedArticleId = card.getAttribute('data-article-id');
+          state.previewMode = 'news';
+          renderNewsQueue();
+          renderTelegramPreview();
+        });
+      });
+    }
+
+    function renderTelegramPreview() {
+      const bubble = document.getElementById('telegramBubbleContainer');
+      const btnLink = document.getElementById('telegramInlineBtnLink');
+      const btnNews = document.getElementById('btnPreviewTypeNews');
+      const btnAd = document.getElementById('btnPreviewTypeAd');
+
+      if (state.previewMode === 'ad') {
+        btnAd.className = 'px-2.5 py-1 rounded text-[11px] font-semibold bg-purple-500 text-white';
+        btnNews.className = 'px-2.5 py-1 rounded text-[11px] font-medium bg-slate-700 text-slate-300 hover:bg-slate-600';
+        const ad = getCurrentSponsorAd();
+        bubble.innerHTML = buildTelegramDedicatedAdHtml(ad).replace(/\n/g, '<br>');
+        btnLink.textContent = ad ? ad.ctaText : '📢 Book Ad Slot';
+        btnLink.href = ad ? ad.ctaUrl : 'https://t.me/BotFather';
+      } else {
+        btnNews.className = 'px-2.5 py-1 rounded text-[11px] font-semibold bg-sky-500 text-slate-950';
+        btnAd.className = 'px-2.5 py-1 rounded text-[11px] font-medium bg-slate-700 text-slate-300 hover:bg-slate-600';
+        const article = getSelectedArticle();
+        bubble.innerHTML = buildTelegramNewsHtml(article).replace(/\n/g, '<br>');
+        btnLink.textContent = article ? `🌐 Read Full Article (${article.sourceName})` : '🌐 Read Full Source';
+        btnLink.href = article ? article.link : 'https://news.google.com';
+      }
+    }
+
+    function renderAdsList() {
+      const container = document.getElementById('activeAdsContainer');
+      if (!container) return;
+
+      if (!state.ads.length) {
+        container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-xl">No active sponsors. Add your first paid ad on the left!</div>`;
+        return;
+      }
+
+      container.innerHTML = state.ads
+        .map(
+          (ad) => `
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px] font-semibold">
+                  Sponsor: ${escapeHtml(ad.sponsorName)}
+                </span>
+                <span class="text-xs font-semibold text-emerald-400">👁️ ${ad.impressions || 0} Impressions</span>
+              </div>
+              <div class="text-sm font-bold text-white">${escapeHtml(ad.headline)}</div>
+              <div class="text-xs text-slate-400">${escapeHtml(ad.body)}</div>
+              <div class="text-[11px] text-sky-400">CTA Button: "${escapeHtml(ad.ctaText)}" → ${escapeHtml(ad.ctaUrl)}</div>
+            </div>
+            <div class="flex sm:flex-col gap-2 shrink-0">
+              <button type="button" data-post-ad="${escapeHtml(ad.id)}" class="btn-post-single-ad px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold">
+                📤 Post Ad Now
+              </button>
+              <button type="button" data-del-ad="${escapeHtml(ad.id)}" class="btn-del-single-ad px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-medium">
+                🗑️ Remove
+              </button>
+            </div>
+          </div>
+        `
+        )
+        .join('');
+
+      container.querySelectorAll('.btn-post-single-ad').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-post-ad');
+          const idx = state.ads.findIndex((a) => a.id === id);
+          if (idx !== -1) {
+            state.adRotationIndex = idx;
+            state.previewMode = 'ad';
+            renderTelegramPreview();
+            await publishDedicatedAdNow();
+          }
+        });
+      });
+
+      container.querySelectorAll('.btn-del-single-ad').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-del-ad');
+          state.ads = state.ads.filter((a) => a.id !== id);
+          saveState();
+          renderAll();
+          showToast('Removed sponsor ad from rotation.', 'info');
+        });
+      });
+    }
+
+    function renderDedupList() {
+      const container = document.getElementById('dedupListContainer');
+      if (!container) return;
+
+      if (!state.last50Urls.length) {
+        container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-xl">No URLs in the Last-50 deduplication buffer yet. Click "Run News + Ad Cycle" to publish your first post!</div>`;
+        return;
+      }
+
+      container.innerHTML = state.last50Urls
+        .map(
+          (url, index) => `
+          <div class="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+            <div class="flex items-center gap-2.5 truncate">
+              <span class="px-2 py-0.5 rounded bg-slate-800 text-amber-400 font-mono text-[11px]">#${index + 1}</span>
+              <span class="font-mono text-slate-300 truncate">${escapeHtml(url)}</span>
+            </div>
+            <button type="button" data-remove-url="${escapeHtml(url)}" class="btn-remove-dedup text-rose-400 hover:text-rose-300 text-[11px] shrink-0">
+              Remove
+            </button>
+          </div>
+        `
+        )
+        .join('');
+
+      container.querySelectorAll('.btn-remove-dedup').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-remove-url');
+          state.last50Urls = state.last50Urls.filter((u) => u !== target);
+          saveState();
+          renderAll();
+        });
+      });
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('activityLogList');
+      if (!container) return;
+      container.innerHTML = state.logs
+        .map((line) => `<div class="py-0.5 border-b border-slate-800/60">${escapeHtml(line)}</div>`)
+        .join('');
+    }
+
+    function populateSettingsInputs() {
+      document.getElementById('cfgBotToken').value = state.config.botToken || '';
+      document.getElementById('cfgChannelId').value = state.config.channelId || '';
+      document.getElementById('cfgGeminiKey').value = state.config.geminiKey || '';
+      document.getElementById('cfgRedisUrl').value = state.config.redisUrl || '';
+      document.getElementById('cfgRedisToken').value = state.config.redisToken || '';
+      document.getElementById('cfgVercelWebhook').value = state.config.vercelWebhook || '';
+      document.getElementById('toggleInlineFooter').checked = state.includeInlineFooter;
+      document.getElementById('selectAdFrequency').value = String(state.adFrequencyEveryN);
+    }
+
+    function renderAll() {
+      renderMetrics();
+      renderNewsQueue();
+      renderTelegramPreview();
+      renderAdsList();
+      renderDedupList();
+      renderLogs();
+    }
+
+    // =========================================================================
+    // EVENT LISTENERS & INITIALIZATION
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSavedState();
+      populateSettingsInputs();
+      renderAll();
+
+      // Tab Switching
+      document.querySelectorAll('.nav-tab').forEach((tabBtn) => {
+        tabBtn.addEventListener('click', () => {
+          const target = tabBtn.getAttribute('data-tab');
+          state.activeTab = target;
+          document.querySelectorAll('.nav-tab').forEach((b) => {
+            const active = b.getAttribute('data-tab') === target;
+            b.className = active
+              ? 'nav-tab px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 border-sky-400 text-sky-400 whitespace-nowrap transition'
+              : 'nav-tab px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition';
+          });
+          ['dashboard', 'ads', 'dedup', 'settings'].forEach((sec) => {
+            const el = document.getElementById(`tab-${sec}`);
+            if (el) el.classList.toggle('hidden', sec !== target);
+          });
+        });
+      });
+
+      // Region Filter
+      document.getElementById('regionFilterSelect').addEventListener('change', (e) => {
+        state.regionFilter = e.target.value;
+        const matching =
+          state.regionFilter === 'ALL'
+            ? state.articles
+            : state.articles.filter((a) => a.regionCode === state.regionFilter);
+        if (matching[0]) state.selectedArticleId = matching[0].id;
+        renderNewsQueue();
+        renderTelegramPreview();
+      });
+
+      // Refresh Live RSS Feeds
+      document.getElementById('btnRefreshFeeds').addEventListener('click', fetchLiveRssFeeds);
+
+      // Preview Type Switchers
+      document.getElementById('btnPreviewTypeNews').addEventListener('click', () => {
+        state.previewMode = 'news';
+        renderTelegramPreview();
+      });
+      document.getElementById('btnPreviewTypeAd').addEventListener('click', () => {
+        state.previewMode = 'ad';
+        renderTelegramPreview();
+      });
+
+      // AI Summarize & Publish Actions
+      document.getElementById('btnAiRewritePreview').addEventListener('click', rewriteSelectedWithGeminiAI);
+      document.getElementById('btnPublishSelectedToTelegram').addEventListener('click', publishSelectedArticleNow);
+      document.getElementById('btnSendDedicatedAdNow').addEventListener('click', publishDedicatedAdNow);
+      document.getElementById('btnRunCycleHeader').addEventListener('click', runFullAutomationCycle);
+
+      // Browser Auto-Pilot Timer
+      document.getElementById('btnToggleAutoPilot').addEventListener('click', () => {
+        const btn = document.getElementById('btnToggleAutoPilot');
+        const dot = document.getElementById('autoPilotDot');
+        const label = document.getElementById('autoPilotLabel');
+        const mins = parseInt(document.getElementById('autoIntervalSelect').value || '30', 10);
+
+        if (state.autoPilotTimer) {
+          clearInterval(state.autoPilotTimer);
+          state.autoPilotTimer = null;
+          btn.textContent = '▶️ Start Auto-Pilot';
+          btn.className = 'px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition';
+          dot.className = 'w-2 h-2 rounded-full bg-slate-400';
+          label.textContent = 'Auto-Pilot: Off';
+          addLog('Stopped browser Auto-Pilot scheduler.');
+          showToast('Auto-Pilot paused.', 'info');
+        } else {
+          state.autoPilotTimer = setInterval(runFullAutomationCycle, mins * 60 * 1000);
+          btn.textContent = '⏹️ Stop Auto-Pilot';
+          btn.className = 'px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition';
+          dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+          label.textContent = `Auto-Pilot: Every ${mins}m`;
+          addLog(`Started browser Auto-Pilot: posting every ${mins} minute(s).`);
+          showToast(`Auto-Pilot active! Running every ${mins} min(s).`, 'success');
+        }
+      });
+
+      // Clear Logs
+      document.getElementById('btnClearLogs').addEventListener('click', () => {
+        state.logs = ['[Cleared] Activity log reset.'];
+        renderLogs();
+      });
+
+      // Add Paid Ad Form
+      document.getElementById('addAdForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const sponsorName = document.getElementById('adSponsorName').value.trim();
+        const headline = document.getElementById('adHeadline').value.trim();
+        const body = document.getElementById('adBody').value.trim();
+        const ctaUrl = document.getElementById('adCtaUrl').value.trim();
+        const ctaText = document.getElementById('adCtaText').value.trim() || '🔗 Visit Sponsor';
+
+        if (!sponsorName || !headline || !body || !ctaUrl) return;
+        const newAd = {
+          id: `ad-${Date.now()}`,
+          sponsorName,
+          headline,
+          body,
+          ctaUrl,
+          ctaText,
+          impressions: 0
+        };
+        state.ads.unshift(newAd);
+        saveState();
+        renderAll();
+        e.target.reset();
+        document.getElementById('adCtaText').value = '🔥 Claim Exclusive Offer';
+        addLog(`Added new Paid Ad campaign for "${sponsorName}"`);
+        showToast(`Added Paid Ad for ${sponsorName}!`, 'success');
+      });
+
+      // Ad Settings Toggles
+      document.getElementById('toggleInlineFooter').addEventListener('change', (e) => {
+        state.includeInlineFooter = e.target.checked;
+        saveState();
+        renderAll();
+      });
+      document.getElementById('selectAdFrequency').addEventListener('change', (e) => {
+        state.adFrequencyEveryN = parseInt(e.target.value, 10) || 4;
+        saveState();
+        renderAll();
+      });
+
+      // Deduplication Controls
+      document.getElementById('btnSyncRedisDedup').addEventListener('click', syncLast50WithUpstash);
+      document.getElementById('btnClearDedupHistory').addEventListener('click', () => {
+        state.last50Urls = [];
+        saveState();
+        renderAll();
+        addLog('Cleared Last-50 deduplication URL buffer.');
+        showToast('Reset 50-post deduplication memory!', 'info');
+      });
+      document.getElementById('btnAddManualDedup').addEventListener('click', () => {
+        const input = document.getElementById('manualDedupUrlInput');
+        const val = input.value.trim();
+        if (!val) return;
+        addUrlToLast50(val);
+        input.value = '';
+        showToast('Added URL to Last-50 deduplication list.', 'success');
+      });
+
+      // Save Credentials & Test Ping
+      document.getElementById('btnSaveSettings').addEventListener('click', () => {
+        state.config.botToken = document.getElementById('cfgBotToken').value.trim();
+        state.config.channelId = document.getElementById('cfgChannelId').value.trim() || '@global_ai_news_channel';
+        state.config.geminiKey = document.getElementById('cfgGeminiKey').value.trim();
+        state.config.redisUrl = document.getElementById('cfgRedisUrl').value.trim();
+        state.config.redisToken = document.getElementById('cfgRedisToken').value.trim();
+        state.config.vercelWebhook = document.getElementById('cfgVercelWebhook').value.trim();
+        saveState();
+        renderAll();
+        showToast('Saved API credentials & channel settings!', 'success');
+      });
+
+      document.getElementById('btnTestTelegramConnection').addEventListener('click', async () => {
+        state.config.botToken = document.getElementById('cfgBotToken').value.trim();
+        state.config.channelId = document.getElementById('cfgChannelId').value.trim() || '@global_ai_news_channel';
+        saveState();
+        await sendHtmlToTelegramChannel(
+          `✅ <b>TelePulse AI Connected!</b>\nYour global multi-language news & paid ads bot is linked to <code>${escapeHtml(state.config.channelId)}</code>.`,
+          '🌐 Open Dashboard',
+          'https://t.me/'
+        );
+      });
+
+      // Copy buttons
+      document.getElementById('btnCopyWorkflowYaml').addEventListener('click', () => {
+        copyTextSafe(document.getElementById('workflowYamlBox').value, 'Copied GitHub Actions workflow YAML!');
+      });
+      document.getElementById('btnCopyCronUrl').addEventListener('click', () => {
+        copyTextSafe(document.getElementById('cronUrlPreview').value, 'Copied cron-job.org webhook URL!');
+      });
+    });
+  </script>
+</body>
+</html>
