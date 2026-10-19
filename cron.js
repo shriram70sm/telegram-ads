@@ -3,56 +3,35 @@
  * GLOBAL AI NEWS & SPONSORED ADS TELEGRAM BOT (Zero-Dependency Universal Script)
  * ============================================================================
  * Works out-of-the-box on:
- *   1. Vercel Serverless Functions (save as `api/cron.js`)
- *   2. Netlify Functions (save as `netlify/functions/cron.js`)
- *   3. GitHub Actions / CLI (`node telegram_news_ad_bot.js`)
- *   4. Triggerable via cron-job.org (`GET https://your-app.vercel.app/api/cron?secret=YOUR_SECRET`)
+ *   1. GitHub Actions (`node telegram_news_ad_bot.js`)
+ *   2. Vercel / Netlify Serverless Functions (`api/cron.js`)
  *
- * Core Features:
- *   - Multi-Region, Multi-Country & Multi-Language RSS Aggregation (Google News + Global Feeds)
- *   - Last-50-Posts Deduplication via Upstash Redis Free REST API
- *   - AI Summarization & Localization via Google Gemini API (Free Tier)
- *   - Built-in Paid Ads & Sponsorship System:
- *       * Dedicated Sponsored Posts with Images & Inline CTA Buttons
- *       * Optional Native Sponsor Footer inside regular news posts
- *       * Live Ad Impression Counter stored in Redis for advertiser reporting
- *       * Telegram Admin Bot Commands (`/addad`, `/listads`, `/delad`, `/postnow`)
+ * Security & Admin Lock Features:
+ *   - Checks `tg_news_bot:bot_paused` in Upstash Redis so if the Admin pauses
+ *     the bot from the password-locked GitHub Pages dashboard, no runs occur.
+ *   - Supports `CRON_SECRET` / `ADMIN_PASSWORD` verification on HTTP triggers.
+ *   - Restricts Telegram DM commands (`/addad`, `/delad`, `/postnow`) strictly
+ *     to `ADMIN_TELEGRAM_USER_ID`.
  * ============================================================================
  */
 
-// ----------------------------------------------------------------------------
-// 1. CONFIGURATION & ENVIRONMENT VARIABLES
-// ----------------------------------------------------------------------------
 const CONFIG = {
-  // Telegram Settings
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
-  TELEGRAM_CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID || "", // e.g. "@my_global_news" or "-1001234567890"
-  ADMIN_TELEGRAM_USER_ID: process.env.ADMIN_TELEGRAM_USER_ID || "", // Your numeric Telegram ID for managing ads via DM
-
-  // Free Gemini API Key (https://aistudio.google.com/app/apikey)
+  TELEGRAM_CHANNEL_ID: process.env.TELEGRAM_CHANNEL_ID || "",
+  ADMIN_TELEGRAM_USER_ID: process.env.ADMIN_TELEGRAM_USER_ID || "",
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-
-  // Free Upstash Redis REST API (https://console.upstash.com)
   UPSTASH_REDIS_REST_URL: (process.env.UPSTASH_REDIS_REST_URL || "").replace(/\/$/, ""),
   UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || "",
-
-  // Security & Posting Rules
-  CRON_SECRET: process.env.CRON_SECRET || "", // Optional secret for cron-job.org (?secret=...)
+  CRON_SECRET: process.env.CRON_SECRET || process.env.ADMIN_PASSWORD || "",
   MAX_POSTS_PER_RUN: parseInt(process.env.MAX_POSTS_PER_RUN || "2", 10),
-  DEDUP_HISTORY_LIMIT: 50, // Strictly keeps the last 50 posted article URLs in Redis
+  DEDUP_HISTORY_LIMIT: 50,
   OUTPUT_LANGUAGE: process.env.OUTPUT_LANGUAGE || "English (with original region/language context noted)",
-
-  // Paid Ads & Monetization Rules
   ENABLE_PAID_ADS: (process.env.ENABLE_PAID_ADS || "true").toLowerCase() === "true",
-  AD_FREQUENCY_EVERY_N_POSTS: parseInt(process.env.AD_FREQUENCY_EVERY_N_POSTS || "4", 10), // Dedicated ad every 4 news posts
+  AD_FREQUENCY_EVERY_N_POSTS: parseInt(process.env.AD_FREQUENCY_EVERY_N_POSTS || "4", 10),
   INCLUDE_INLINE_SPONSOR_FOOTER: (process.env.INCLUDE_INLINE_SPONSOR_FOOTER || "true").toLowerCase() === "true",
 };
 
-// ----------------------------------------------------------------------------
-// 2. MULTI-COUNTRY, MULTI-LANGUAGE & GLOBAL RSS SOURCES
-// ----------------------------------------------------------------------------
-// Helper to generate Google News RSS feeds for any Country + Language + Topic
 function buildGoogleNewsRss({ country = "US", lang = "en", topic = "" }) {
   const ceid = `${country}:${lang}`;
   if (!topic) {
@@ -62,14 +41,11 @@ function buildGoogleNewsRss({ country = "US", lang = "en", topic = "" }) {
 }
 
 const NEWS_FEEDS = [
-  // Global / World English
   { name: "BBC World", region: "🌍 Global", lang: "en", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
   { name: "Al Jazeera Global", region: "🌍 Global", lang: "en", url: "https://www.aljazeera.com/xml/rss/all.xml" },
-  // India (English, Hindi, Marathi)
   { name: "Google News India (EN)", region: "🇮🇳 India", lang: "en", url: buildGoogleNewsRss({ country: "IN", lang: "en" }) },
   { name: "Google News India (Hindi)", region: "🇮🇳 भारत (Hindi)", lang: "hi", url: buildGoogleNewsRss({ country: "IN", lang: "hi" }) },
   { name: "Google News India (Marathi)", region: "🇮🇳 महाराष्ट्र (Marathi)", lang: "mr", url: buildGoogleNewsRss({ country: "IN", lang: "mr" }) },
-  // Americas, Europe, Middle East & Asia-Pacific (Multi-language)
   { name: "Google News US", region: "🇺🇸 USA", lang: "en", url: buildGoogleNewsRss({ country: "US", lang: "en" }) },
   { name: "Google News Tech & AI", region: "💻 Global Tech", lang: "en", url: buildGoogleNewsRss({ country: "US", lang: "en", topic: "TECHNOLOGY" }) },
   { name: "Google News Business", region: "📈 Global Finance", lang: "en", url: buildGoogleNewsRss({ country: "US", lang: "en", topic: "BUSINESS" }) },
@@ -79,7 +55,6 @@ const NEWS_FEEDS = [
   { name: "Google News Japan", region: "🇯🇵 Japanese", lang: "ja", url: buildGoogleNewsRss({ country: "JP", lang: "ja" }) },
 ];
 
-// Default fallback Paid Ads (can also be added dynamically via Telegram `/addad` stored in Redis!)
 const DEFAULT_SPONSORED_ADS = [
   {
     id: "sponsor-default-1",
@@ -88,15 +63,13 @@ const DEFAULT_SPONSORED_ADS = [
     body: "Reach thousands of daily global news readers across our Telegram network. Affordable daily & weekly sponsorship slots available.",
     ctaText: "📢 Book an Ad Slot",
     ctaUrl: "https://t.me/your_admin_username",
-    imageUrl: "", // Optional image banner URL (https://...)
+    imageUrl: "",
     inlineFooter: "💎 Sponsored: Want to advertise here? Contact Admin (@your_admin_username)",
   },
 ];
 
-// ----------------------------------------------------------------------------
-// 3. UPSTASH REDIS CLIENT (LAST 50 POSTS DEDUPLICATION + AD STORAGE)
-// ----------------------------------------------------------------------------
 const REDIS_KEYS = {
+  BOT_PAUSED: "tg_news_bot:bot_paused",
   RECENT_POSTS: "tg_news_bot:last_50_urls",
   POST_COUNTER: "tg_news_bot:total_post_counter",
   FEED_ROTATION_INDEX: "tg_news_bot:feed_index",
@@ -105,9 +78,7 @@ const REDIS_KEYS = {
 };
 
 async function redisCommand(commandArray) {
-  if (!CONFIG.UPSTASH_REDIS_REST_URL || !CONFIG.UPSTASH_REDIS_REST_TOKEN) {
-    return null; // Runs in stateless fallback mode if Redis isn't configured yet
-  }
+  if (!CONFIG.UPSTASH_REDIS_REST_URL || !CONFIG.UPSTASH_REDIS_REST_TOKEN) return null;
   const res = await fetch(CONFIG.UPSTASH_REDIS_REST_URL, {
     method: "POST",
     headers: {
@@ -116,12 +87,14 @@ async function redisCommand(commandArray) {
     },
     body: JSON.stringify(commandArray),
   });
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Upstash Redis error (${res.status}): ${errText}`);
-  }
+  if (!res.ok) throw new Error(`Upstash Redis error (${res.status}): ${await res.text()}`);
   const data = await res.json();
   return data.result;
+}
+
+async function isBotPausedByAdmin() {
+  const pausedVal = await redisCommand(["GET", REDIS_KEYS.BOT_PAUSED]);
+  return String(pausedVal).toLowerCase() === "true";
 }
 
 async function getLast50PostedUrls() {
@@ -131,7 +104,6 @@ async function getLast50PostedUrls() {
 
 async function recordPostedUrl(urlKey) {
   if (!CONFIG.UPSTASH_REDIS_REST_URL) return;
-  // Push new URL to the head of the list and trim strictly to the last 50 items
   await redisCommand(["LPUSH", REDIS_KEYS.RECENT_POSTS, urlKey]);
   await redisCommand(["LTRIM", REDIS_KEYS.RECENT_POSTS, "0", String(CONFIG.DEDUP_HISTORY_LIMIT - 1)]);
 }
@@ -141,9 +113,6 @@ async function incrementAndGetCounter(key) {
   return typeof count === "number" ? count : 1;
 }
 
-// ----------------------------------------------------------------------------
-// 4. ZERO-DEPENDENCY RSS / ATOM XML PARSER
-// ----------------------------------------------------------------------------
 function decodeHtmlEntities(str = "") {
   return str
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -180,55 +149,48 @@ async function fetchRssItems(feed) {
       signal: controller.signal,
     });
     clearTimeout(timeout);
-
     if (!response.ok) return [];
     const xml = await response.text();
     const itemBlocks = xml.match(/<item[\s\S]*?<\/item>|<entry[\s\S]*?<\/entry>/gi) || [];
 
-    return itemBlocks.slice(0, 8).map((block) => {
-      const title = extractTag(block, "title");
-      let link = extractTag(block, "link");
-      if (!link) {
-        const hrefMatch = block.match(/<link[^>]+href=["']([^"']+)["']/i);
-        if (hrefMatch) link = hrefMatch[1];
-      }
-      const description = extractTag(block, "description") || extractTag(block, "summary");
-      const pubDate = extractTag(block, "pubDate") || extractTag(block, "published");
-      const guid = extractTag(block, "guid") || extractTag(block, "id") || link || title;
-      const imageUrl = extractImageFromItem(block);
-
-      return {
-        title,
-        link,
-        description,
-        pubDate,
-        guid: guid.slice(0, 240),
-        imageUrl,
-        sourceName: feed.name,
-        region: feed.region,
-        lang: feed.lang,
-      };
-    }).filter((item) => item.title && item.link);
+    return itemBlocks
+      .slice(0, 8)
+      .map((block) => {
+        const title = extractTag(block, "title");
+        let link = extractTag(block, "link");
+        if (!link) {
+          const hrefMatch = block.match(/<link[^>]+href=["']([^"']+)["']/i);
+          if (hrefMatch) link = hrefMatch[1];
+        }
+        const description = extractTag(block, "description") || extractTag(block, "summary");
+        const pubDate = extractTag(block, "pubDate") || extractTag(block, "published");
+        const guid = extractTag(block, "guid") || extractTag(block, "id") || link || title;
+        const imageUrl = extractImageFromItem(block);
+        return {
+          title,
+          link,
+          description,
+          pubDate,
+          guid: guid.slice(0, 240),
+          imageUrl,
+          sourceName: feed.name,
+          region: feed.region,
+          lang: feed.lang,
+        };
+      })
+      .filter((item) => item.title && item.link);
   } catch (err) {
-    console.warn(`[RSS Warning] Failed to fetch ${feed.name}: ${err.message}`);
     return [];
   }
 }
 
-// ----------------------------------------------------------------------------
-// 5. AI SUMMARIZATION ENGINE (GOOGLE GEMINI API - FREE TIER)
-// ----------------------------------------------------------------------------
 function escapeHtml(text = "") {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 async function summarizeArticleWithAI(article, inlineFooter = "") {
-  // Fallback formatting if Gemini API key is not configured
   if (!CONFIG.GEMINI_API_KEY) {
-    const baseText = [
+    return [
       `<b>${escapeHtml(article.region)} | ${escapeHtml(article.sourceName)}</b>`,
       ``,
       `📰 <b>${escapeHtml(article.title)}</b>`,
@@ -239,7 +201,6 @@ async function summarizeArticleWithAI(article, inlineFooter = "") {
     ]
       .filter(Boolean)
       .join("\n");
-    return baseText;
   }
 
   const prompt = `You are an engaging global news editor for a high-traffic Telegram channel.
@@ -267,7 +228,6 @@ Strict Formatting Rules (Plain text only, NO markdown asterisks ** or # headers)
         generationConfig: { temperature: 0.4, maxOutputTokens: 450 },
       }),
     });
-
     if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
     const data = await res.json();
     const rawSummary = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
@@ -284,7 +244,6 @@ Strict Formatting Rules (Plain text only, NO markdown asterisks ** or # headers)
       .filter(Boolean)
       .join("\n");
   } catch (err) {
-    console.warn(`[AI Fallback] Using standard format due to: ${err.message}`);
     return [
       `<b>${escapeHtml(article.region)} • ${escapeHtml(article.sourceName)}</b>`,
       ``,
@@ -299,9 +258,6 @@ Strict Formatting Rules (Plain text only, NO markdown asterisks ** or # headers)
   }
 }
 
-// ----------------------------------------------------------------------------
-// 6. PAID ADS & SPONSORSHIP MANAGER
-// ----------------------------------------------------------------------------
 async function getActiveAds() {
   try {
     const rawAds = await redisCommand(["GET", REDIS_KEYS.CUSTOM_ADS]);
@@ -309,9 +265,7 @@ async function getActiveAds() {
       const parsed = JSON.parse(rawAds);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-  } catch (e) {
-    console.warn("[Ads Warning] Could not load custom ads from Redis:", e.message);
-  }
+  } catch (e) {}
   return DEFAULT_SPONSORED_ADS;
 }
 
@@ -320,7 +274,6 @@ async function pickNextSponsoredAd() {
   if (!ads.length) return null;
   const idx = await incrementAndGetCounter(REDIS_KEYS.AD_INDEX);
   const chosenAd = ads[(idx - 1) % ads.length];
-  // Track ad impression in Redis for advertiser reporting
   if (chosenAd?.id) {
     await redisCommand(["INCR", `tg_news_bot:ad_impressions:${chosenAd.id}`]);
   }
@@ -340,11 +293,7 @@ async function publishDedicatedSponsoredAd(ad) {
   ].join("\n");
 
   const replyMarkup = ad.ctaUrl
-    ? {
-        inline_keyboard: [
-          [{ text: ad.ctaText || "🔗 Learn More", url: ad.ctaUrl }],
-        ],
-      }
+    ? { inline_keyboard: [[{ text: ad.ctaText || "🔗 Learn More", url: ad.ctaUrl }]] }
     : undefined;
 
   if (ad.imageUrl) {
@@ -353,81 +302,46 @@ async function publishDedicatedSponsoredAd(ad) {
   return sendTelegramMessage(CONFIG.TELEGRAM_CHANNEL_ID, caption, replyMarkup);
 }
 
-// ----------------------------------------------------------------------------
-// 7. TELEGRAM BOT API HELPERS & ADMIN WEBHOOK COMMANDS
-// ----------------------------------------------------------------------------
 async function sendTelegramMessage(chatId, htmlText, replyMarkup = undefined) {
   const url = `https://api.telegram.org/bot${CONFIG.TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const payload = {
-    chat_id: chatId,
-    text: htmlText,
-    parse_mode: "HTML",
-    disable_web_page_preview: false,
-  };
+  const payload = { chat_id: chatId, text: htmlText, parse_mode: "HTML", disable_web_page_preview: false };
   if (replyMarkup) payload.reply_markup = replyMarkup;
-
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!data.ok) {
-    throw new Error(`Telegram sendMessage failed: ${data.description || JSON.stringify(data)}`);
-  }
+  if (!data.ok) throw new Error(`Telegram sendMessage failed: ${data.description || JSON.stringify(data)}`);
   return data.result;
 }
 
 async function sendTelegramPhoto(chatId, photoUrl, captionHtml, replyMarkup = undefined) {
   const url = `https://api.telegram.org/bot${CONFIG.TELEGRAM_BOT_TOKEN}/sendPhoto`;
-  const payload = {
-    chat_id: chatId,
-    photo: photoUrl,
-    caption: captionHtml.slice(0, 1020),
-    parse_mode: "HTML",
-  };
+  const payload = { chat_id: chatId, photo: photoUrl, caption: captionHtml.slice(0, 1020), parse_mode: "HTML" };
   if (replyMarkup) payload.reply_markup = replyMarkup;
-
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   const data = await res.json();
-  if (!data.ok) {
-    // Fallback to text message if remote image URL fails
-    return sendTelegramMessage(chatId, captionHtml, replyMarkup);
-  }
+  if (!data.ok) return sendTelegramMessage(chatId, captionHtml, replyMarkup);
   return data.result;
 }
 
-/**
- * Handles Telegram Admin DM Commands when deployed as a Webhook (`?mode=webhook`)
- * Commands:
- *   /addad Sponsor | Headline | Body | https://link.com | CTA Button Text
- *   /listads
- *   /delad <ad_id>
- *   /postnow
- */
 async function handleAdminWebhookUpdate(update) {
   const msg = update?.message;
   if (!msg || !msg.text) return { handled: false };
-
   const senderId = String(msg.from?.id || "");
   if (CONFIG.ADMIN_TELEGRAM_USER_ID && senderId !== String(CONFIG.ADMIN_TELEGRAM_USER_ID)) {
     return { handled: false, reason: "Unauthorized user" };
   }
-
   const text = msg.text.trim();
-
   if (text.startsWith("/addad")) {
-    const rawArgs = text.replace("/addad", "").trim();
-    const parts = rawArgs.split("|").map((s) => s.trim());
+    const parts = text.replace("/addad", "").trim().split("|").map((s) => s.trim());
     if (parts.length < 4) {
-      await sendTelegramMessage(
-        msg.chat.id,
-        "ℹ️ <b>Usage:</b>\n<code>/addad Sponsor Name | Headline | Ad Body Copy | https://link.com | Button Text</code>"
-      );
+      await sendTelegramMessage(msg.chat.id, "ℹ️ <b>Usage:</b>\n<code>/addad Sponsor | Headline | Body | https://link.com | Button Text</code>");
       return { handled: true };
     }
     const [sponsorName, headline, body, ctaUrl, ctaText = "🔗 Visit Sponsor"] = parts;
@@ -446,7 +360,6 @@ async function handleAdminWebhookUpdate(update) {
     await sendTelegramMessage(msg.chat.id, `✅ Added new paid ad <code>${newAd.id}</code> for <b>${escapeHtml(sponsorName)}</b>!`);
     return { handled: true };
   }
-
   if (text.startsWith("/listads")) {
     const ads = await getActiveAds();
     const lines = await Promise.all(
@@ -458,31 +371,30 @@ async function handleAdminWebhookUpdate(update) {
     await sendTelegramMessage(msg.chat.id, `📊 <b>Active Sponsored Ads:</b>\n\n${lines.join("\n\n")}`);
     return { handled: true };
   }
-
   if (text.startsWith("/delad")) {
     const targetId = text.replace("/delad", "").trim();
     const ads = await getActiveAds();
     const filtered = ads.filter((a) => a.id !== targetId);
     await redisCommand(["SET", REDIS_KEYS.CUSTOM_ADS, JSON.stringify(filtered)]);
-    await sendTelegramMessage(msg.chat.id, `🗑️ Removed ad <code>${escapeHtml(targetId)}</code>. Remaining ads: ${filtered.length}`);
+    await sendTelegramMessage(msg.chat.id, `🗑️ Removed ad <code>${escapeHtml(targetId)}</code>.`);
     return { handled: true };
   }
-
   if (text.startsWith("/postnow")) {
     const result = await runNewsAndAdsCycle();
-    await sendTelegramMessage(msg.chat.id, `✅ Manual run complete: posted ${result.postedCount} news item(s) and ${result.adsPosted} dedicated ad(s).`);
+    await sendTelegramMessage(msg.chat.id, `✅ Manual run complete: posted ${result.postedCount} news item(s) and ${result.adsPosted} ad(s).`);
     return { handled: true };
   }
-
   return { handled: false };
 }
 
-// ----------------------------------------------------------------------------
-// 8. MAIN AUTOMATION CYCLE (FETCH -> DEDUPLICATE -> SUMMARIZE -> POST + ADS)
-// ----------------------------------------------------------------------------
 async function runNewsAndAdsCycle({ forceAdOnly = false } = {}) {
   if (!CONFIG.TELEGRAM_BOT_TOKEN || !CONFIG.TELEGRAM_CHANNEL_ID) {
     throw new Error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHANNEL_ID environment variables.");
+  }
+
+  // Respect Admin Master Switch set from the password-protected dashboard
+  if (await isBotPausedByAdmin()) {
+    return { status: "paused", message: "Bot Master Switch is currently PAUSED by Admin.", postedCount: 0, adsPosted: 0 };
   }
 
   if (forceAdOnly) {
@@ -490,11 +402,7 @@ async function runNewsAndAdsCycle({ forceAdOnly = false } = {}) {
     await publishDedicatedSponsoredAd(ad);
     return { status: "ok", postedCount: 0, adsPosted: 1 };
   }
-
-  // 1. Load the last 50 posted article URLs/GUIDs from Upstash Redis
   const postedHistorySet = await getLast50PostedUrls();
-
-  // 2. Rotate starting feed index so every region & language gets fair coverage across runs
   const startIdx = (await incrementAndGetCounter(REDIS_KEYS.FEED_ROTATION_INDEX)) % NEWS_FEEDS.length;
   const orderedFeeds = [...NEWS_FEEDS.slice(startIdx), ...NEWS_FEEDS.slice(0, startIdx)];
 
@@ -504,29 +412,19 @@ async function runNewsAndAdsCycle({ forceAdOnly = false } = {}) {
 
   for (const feed of orderedFeeds) {
     if (postedCount >= CONFIG.MAX_POSTS_PER_RUN) break;
-
     const items = await fetchRssItems(feed);
-    const freshItem = items.find(
-      (item) => !postedHistorySet.has(item.guid) && !postedHistorySet.has(item.link)
-    );
-
+    const freshItem = items.find((item) => !postedHistorySet.has(item.guid) && !postedHistorySet.has(item.link));
     if (!freshItem) continue;
 
-    // Prepare optional inline sponsor footer
     let inlineFooter = "";
     if (CONFIG.ENABLE_PAID_ADS && CONFIG.INCLUDE_INLINE_SPONSOR_FOOTER) {
       const activeAds = await getActiveAds();
       const sponsor = activeAds[postedCount % activeAds.length];
-      if (sponsor?.inlineFooter) {
-        inlineFooter = sponsor.inlineFooter;
-      }
+      if (sponsor?.inlineFooter) inlineFooter = sponsor.inlineFooter;
     }
 
-    // Summarize with Gemini AI & publish to Telegram Channel
     const formattedPost = await summarizeArticleWithAI(freshItem, inlineFooter);
-    const ctaMarkup = {
-      inline_keyboard: [[{ text: `🌐 Read Full Article (${freshItem.sourceName})`, url: freshItem.link }]],
-    };
+    const ctaMarkup = { inline_keyboard: [[{ text: `🌐 Read Full Article (${freshItem.sourceName})`, url: freshItem.link }]] };
 
     if (freshItem.imageUrl) {
       await sendTelegramPhoto(CONFIG.TELEGRAM_CHANNEL_ID, freshItem.imageUrl, formattedPost, ctaMarkup);
@@ -534,60 +432,39 @@ async function runNewsAndAdsCycle({ forceAdOnly = false } = {}) {
       await sendTelegramMessage(CONFIG.TELEGRAM_CHANNEL_ID, formattedPost, ctaMarkup);
     }
 
-    // Save in Last-50 Redis list immediately so it is never posted again
     await recordPostedUrl(freshItem.link);
     postedHistorySet.add(freshItem.link);
     postedCount += 1;
     postedTitles.push(`${freshItem.region}: ${freshItem.title}`);
 
-    // Check if it's time to publish a full dedicated Sponsored Ad post
     const totalPostsEver = await incrementAndGetCounter(REDIS_KEYS.POST_COUNTER);
-    if (
-      CONFIG.ENABLE_PAID_ADS &&
-      CONFIG.AD_FREQUENCY_EVERY_N_POSTS > 0 &&
-      totalPostsEver % CONFIG.AD_FREQUENCY_EVERY_N_POSTS === 0
-    ) {
+    if (CONFIG.ENABLE_PAID_ADS && CONFIG.AD_FREQUENCY_EVERY_N_POSTS > 0 && totalPostsEver % CONFIG.AD_FREQUENCY_EVERY_N_POSTS === 0) {
       const ad = await pickNextSponsoredAd();
       await publishDedicatedSponsoredAd(ad);
       adsPosted += 1;
     }
   }
 
-  return {
-    status: "ok",
-    postedCount,
-    adsPosted,
-    postedTitles,
-    timestamp: new Date().toISOString(),
-  };
+  return { status: "ok", postedCount, adsPosted, postedTitles, timestamp: new Date().toISOString() };
 }
 
-// ----------------------------------------------------------------------------
-// 9. UNIVERSAL ENTRYPOINTS (VERCEL, NETLIFY, AND GITHUB ACTIONS CLI)
-// ----------------------------------------------------------------------------
-
-// Vercel Serverless Handler (`api/cron.js`)
 async function vercelHandler(req, res) {
   try {
     const query = req.query || {};
     if (CONFIG.CRON_SECRET && query.secret !== CONFIG.CRON_SECRET && query.mode !== "webhook") {
-      return res.status(401).json({ error: "Unauthorized: Invalid CRON_SECRET" });
+      return res.status(401).json({ error: "Unauthorized: Invalid Admin Password / CRON_SECRET" });
     }
-
     if (query.mode === "webhook" && req.method === "POST") {
       const out = await handleAdminWebhookUpdate(req.body);
       return res.status(200).json(out);
     }
-
     const result = await runNewsAndAdsCycle({ forceAdOnly: query.mode === "ad" });
     return res.status(200).json(result);
   } catch (err) {
-    console.error("[Bot Error]", err);
     return res.status(500).json({ error: err.message });
   }
 }
 
-// Netlify Function Wrapper
 async function netlifyHandler(event) {
   try {
     const query = event.queryStringParameters || {};
@@ -610,7 +487,6 @@ module.exports = vercelHandler;
 module.exports.handler = netlifyHandler;
 module.exports.runNewsAndAdsCycle = runNewsAndAdsCycle;
 
-// Direct CLI execution for GitHub Actions (`node telegram_news_ad_bot.js`)
 if (require.main === module) {
   runNewsAndAdsCycle()
     .then((res) => {
