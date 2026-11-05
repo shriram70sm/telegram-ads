@@ -1,0 +1,32 @@
+name: Telegram Global AI News & Ads Cron
+
+on:
+  schedule:
+    # Runs every 30 minutes automatically
+    - cron: "*/30 * * * *"
+  workflow_dispatch: # Lets you click "Run workflow" manually anytime
+
+jobs:
+  publish-news:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run Telegram News & Ad Bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          ADMIN_TELEGRAM_USER_ID: ${{ secrets.ADMIN_TELEGRAM_USER_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          MAX_POSTS_PER_RUN: "2"
+          ENABLE_PAID_ADS: "true"
+          AD_FREQUENCY_EVERY_N_POSTS: "4"
+        run: node telegram_news_ad_bot.js
