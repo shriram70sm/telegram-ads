@@ -70,9 +70,8 @@
         </button>
       </form>
 
-      <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 space-y-1">
-        <div><strong class="text-slate-200">First-time default password:</strong> <code class="text-amber-300 px-1.5 py-0.5 rounded bg-slate-900">admin123</code></div>
-        <div>Once unlocked, go to <strong>⚙️ GitHub Setup & API Keys</strong> to set your own custom password (stored as a SHA-256 hash & synced with Upstash Redis).</div>
+      <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-slate-400 text-center">
+        🔒 Restricted private control panel. Unauthorized access is prohibited.
       </div>
     </div>
   </div>
@@ -543,8 +542,8 @@ jobs:
     // =========================================================================
     // STATE & CURATED MULTI-REGION, MULTI-LANGUAGE NEWS + RSS ENGINE
     // =========================================================================
-    const STORAGE_KEY = 'telepulse_ai_state_v1';
-    // SHA-256 hash of default starter password "admin123"
+    const STORAGE_KEY = 'telepulse_ai_state_v2_clean';
+    // SHA-256 hash of owner master password
     const DEFAULT_PASSWORD_HASH = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
 
     const DEFAULT_NEWS_ITEMS = [
@@ -710,28 +709,8 @@ jobs:
       }
     ];
 
-    const DEFAULT_ADS = [
-      {
-        id: 'ad-101',
-        sponsorName: 'TeleGrow Ad Network',
-        headline: '🚀 Promote Your Brand, Crypto Project, or App to Global Readers!',
-        body: 'Reach active daily readers across India & worldwide on our automated AI news channel. Instant booking & verified impression stats.',
-        ctaText: '📢 Book Sponsored Slot',
-        ctaUrl: 'https://t.me/MovieGalaxyX_Bot',
-        impressions: 14,
-        inlineFooter: '💎 Sponsored by <a href="https://t.me/BotFather">TeleGrow Ad Network</a> — 🚀 Promote Your Brand, Crypto Project, or App to Global Readers!'
-      },
-      {
-        id: 'ad-102',
-        sponsorName: 'CloudPulse Host',
-        headline: '⚡ Deploy Full-Stack Apps & Bots with $50 Free Cloud Credits',
-        body: 'Zero-downtime global edge hosting for developers and automation builders. Launch in 30 seconds.',
-        ctaText: '🔥 Claim $50 Free Credit',
-        ctaUrl: 'https://github.com',
-        impressions: 9,
-        inlineFooter: '💎 Sponsored by <a href="https://github.com">CloudPulse Host</a> — ⚡ Deploy Full-Stack Apps & Bots with $50 Free Cloud Credits'
-      }
-    ];
+    // Clean empty default ads list so no demo/third-party sponsor names ever appear
+    const DEFAULT_ADS = [];
 
     const state = {
       isUnlocked: false,
@@ -1477,7 +1456,7 @@ jobs:
         const errEl = document.getElementById('unlockErrorMsg');
         const hashedInput = await sha256Hex(inputVal);
 
-        if (hashedInput === state.passwordHash || inputVal === 'admin123' && state.passwordHash === DEFAULT_PASSWORD_HASH) {
+        if (hashedInput === state.passwordHash) {
           state.isUnlocked = true;
           errEl.classList.add('hidden');
           document.getElementById('unlockPasswordInput').value = '';
