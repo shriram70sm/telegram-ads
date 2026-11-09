@@ -55,18 +55,8 @@ const NEWS_FEEDS = [
   { name: "Google News Japan", region: "🇯🇵 Japanese", lang: "ja", url: buildGoogleNewsRss({ country: "JP", lang: "ja" }) },
 ];
 
-const DEFAULT_SPONSORED_ADS = [
-  {
-    id: "sponsor-default-1",
-    sponsorName: "Your Brand Here",
-    headline: "🚀 Promote Your Business, App, or Channel Here!",
-    body: "Reach thousands of daily global news readers across our Telegram network. Affordable daily & weekly sponsorship slots available.",
-    ctaText: "📢 Book an Ad Slot",
-    ctaUrl: "https://t.me/your_admin_username",
-    imageUrl: "",
-    inlineFooter: "💎 Sponsored: Want to advertise here? Contact Admin (@your_admin_username)",
-  },
-];
+// Empty by default so the bot NEVER posts placeholder/demo sponsor names or links
+const DEFAULT_SPONSORED_ADS = [];
 
 const REDIS_KEYS = {
   BOT_PAUSED: "tg_news_bot:bot_paused",
@@ -334,8 +324,9 @@ async function handleAdminWebhookUpdate(update) {
   const msg = update?.message;
   if (!msg || !msg.text) return { handled: false };
   const senderId = String(msg.from?.id || "");
-  if (CONFIG.ADMIN_TELEGRAM_USER_ID && senderId !== String(CONFIG.ADMIN_TELEGRAM_USER_ID)) {
-    return { handled: false, reason: "Unauthorized user" };
+  // Strict lock: if ADMIN_TELEGRAM_USER_ID is not set or does not match, block all Telegram DM commands
+  if (!CONFIG.ADMIN_TELEGRAM_USER_ID || senderId !== String(CONFIG.ADMIN_TELEGRAM_USER_ID)) {
+    return { handled: false, reason: "Unauthorized user: ADMIN_TELEGRAM_USER_ID required" };
   }
   const text = msg.text.trim();
   if (text.startsWith("/addad")) {
